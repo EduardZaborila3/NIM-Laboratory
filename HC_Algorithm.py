@@ -4,6 +4,10 @@ from math import prod
 import time
 import os
 
+# Daca e True, bitii sunt interpretati in cod Gray (folosit de algoritmul genetic).
+# Pentru experimentele din saptamana 3 ramane False.
+USE_GRAY = False
+
 def rastrigin(array):
     return 10 * len(array) + sum(x ** 2 - 10 * math.cos(2 * math.pi * x) for x in array)
 
@@ -24,7 +28,15 @@ def gen_bits_array(n):
 def calculate_bits_number(a, b, precision):
     return math.ceil(math.log2((b - a) * 10 ** precision))
 
+def gray_to_binary(gray):
+    binary = [gray[0]]
+    for bit in gray[1:]:
+        binary.append(binary[-1] ^ bit)
+    return binary
+
 def decode_variable(chunk, a, b, bits_number):
+    if USE_GRAY:
+        chunk = gray_to_binary(chunk)
     integer = int("".join(map(str, chunk)), 2)
     return a + integer * (b - a) / (2 ** bits_number - 1)
 
@@ -42,9 +54,12 @@ FUNCTIONS = {
     "michalewicz":(michalewicz, 0,math.pi),
 }
 
-def hill_climbing_binar(func, a, b, n, bits_number):
+def hill_climbing_binar(func, a, b, n, bits_number, start=None):
     bits_arr_len = n * bits_number
-    current_solution = gen_bits_array(bits_arr_len)
+    if start is None:
+        current_solution = gen_bits_array(bits_arr_len)
+    else:
+        current_solution = start.copy()
     current_x = decode(current_solution, a, b, n, bits_number)
     current_score = func(current_x)
 
@@ -55,10 +70,10 @@ def hill_climbing_binar(func, a, b, n, bits_number):
 
         for i in range(bits_arr_len):
             var = i // bits_number
-            start = var * bits_number
+            start_var = var * bits_number
 
             current_solution[i] = 1 - current_solution[i]
-            new_value = decode_variable(current_solution[start:start + bits_number], a, b, bits_number)
+            new_value = decode_variable(current_solution[start_var:start_var + bits_number], a, b, bits_number)
             current_solution[i] = 1 - current_solution[i]
 
             old_value = current_x[var]
@@ -90,7 +105,7 @@ def hill_climbing_restarts(func, a, b, n, bits_number, restarts):
             best_solution = solution
             best_score = score
     return best_solution, best_score
-            
+
 def run_experiment(name, n, runs, restarts):
     func, a, b = FUNCTIONS[name]
     bits_number = calculate_bits_number(a, b, 5)
@@ -120,6 +135,8 @@ if __name__ == "__main__":
     RESTARTS = {2: 50, 30: 10, 100: 1}
     DIMENSIONS = [2, 30]
 
+    FUNCTIONS_TO_RUN = ["rastrigin", "griewangk", "rosenbrock", "michalewicz"]
+
     for n in DIMENSIONS:
-        for name in FUNCTIONS:
+        for name in FUNCTIONS_TO_RUN:
             run_experiment(name, n, RUNS, RESTARTS[n])
