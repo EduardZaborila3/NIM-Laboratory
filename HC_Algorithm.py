@@ -4,8 +4,6 @@ from math import prod
 import time
 import os
 
-# Daca e True, bitii sunt interpretati in cod Gray (folosit de algoritmul genetic).
-# Pentru experimentele din saptamana 3 ramane False.
 USE_GRAY = False
 
 def rastrigin(array):
@@ -20,32 +18,40 @@ def rosenbrock(array):
 def michalewicz(array):
     return -sum(math.sin(array[i]) * (math.sin((i + 1) * array[i] ** 2 / math.pi)) ** 20 for i in range(len(array)))
 
-#genereaza coordonatele de start aleator
+
+#random starting point
 def gen_bits_array(n):
     bits_array = [random.randint(0, 1) for _ in range(n)]
     return bits_array
 
+#L bits -> 2^L different numbers
 def calculate_bits_number(a, b, precision):
     return math.ceil(math.log2((b - a) * 10 ** precision))
 
+
+#b0=g0
+#bi = b(i-1) XOR gi
 def gray_to_binary(gray):
     binary = [gray[0]]
     for bit in gray[1:]:
         binary.append(binary[-1] ^ bit)
     return binary
 
+#transform bits block in integer and maps it to the interval
 def decode_variable(chunk, a, b, bits_number):
     if USE_GRAY:
         chunk = gray_to_binary(chunk)
     integer = int("".join(map(str, chunk)), 2)
     return a + integer * (b - a) / (2 ** bits_number - 1)
 
+#split the bit array in n blocks (one block per variable) and decode each one
 def decode(bits_array, a, b, n, bits_number):
     values = []
     for i in range(n):
         chunk = bits_array[i * bits_number:(i + 1) * bits_number]
         values.append(decode_variable(chunk, a, b, bits_number))
     return values
+
 
 FUNCTIONS = {
     "rastrigin":(rastrigin, -5.12, 5.12),
@@ -54,12 +60,17 @@ FUNCTIONS = {
     "michalewicz":(michalewicz, 0,math.pi),
 }
 
+#neighbour = current solution with one bit flipped
 def hill_climbing_binar(func, a, b, n, bits_number, start=None):
     bits_arr_len = n * bits_number
+
+    #start from a random point
+    #or from a given point (GA -> best individ)
     if start is None:
         current_solution = gen_bits_array(bits_arr_len)
     else:
         current_solution = start.copy()
+
     current_x = decode(current_solution, a, b, n, bits_number)
     current_score = func(current_x)
 
@@ -81,6 +92,7 @@ def hill_climbing_binar(func, a, b, n, bits_number, start=None):
             neighbour_score = func(current_x)
             current_x[var] = old_value
 
+            #save best neighbour
             if neighbour_score < best_neighbour_score:
                 best_i = i
                 best_value = new_value
@@ -95,7 +107,8 @@ def hill_climbing_binar(func, a, b, n, bits_number, start=None):
 
     return current_solution, current_score
 
-#ruleaza HC de mai multe ori ptr a nu se bloca in minime locale
+
+#run HC many times from random points so it doesn't get stuck in local minimum
 def hill_climbing_restarts(func, a, b, n, bits_number, restarts):
     best_solution = None
     best_score = float('inf')
@@ -108,6 +121,7 @@ def hill_climbing_restarts(func, a, b, n, bits_number, restarts):
 
 def run_experiment(name, n, runs, restarts):
     func, a, b = FUNCTIONS[name]
+    #5 decimals precision
     bits_number = calculate_bits_number(a, b, 5)
 
     scores = []
@@ -120,15 +134,12 @@ def run_experiment(name, n, runs, restarts):
     mean = sum(scores) / runs
     std = math.sqrt(sum((s - mean) ** 2 for s in scores) / runs)
 
-    print(f"{name:12} n={n:3}  min={min(scores):.5f}  medie={mean:.5f}  "
-          f"max={max(scores):.5f}  std={std:.5f}  timp/rulare={duration:.2f}s")
+    print(f"{name:12} n={n:3}  min={min(scores):.5f}  medie={mean:.5f}  "f"max={max(scores):.5f}  std={std:.5f}  timp/rulare={duration:.2f}s")
 
     file_exists = os.path.exists("rezultate_hc.csv")
     with open("rezultate_hc.csv", "a") as f:
-        if not file_exists:
-            f.write("functie,dimensiune,restarts,min,medie,max,std,timp_s\n")
-        f.write(f"{name},{n},{restarts},{min(scores):.5f},{mean:.5f},"
-                f"{max(scores):.5f},{std:.5f},{duration:.2f}\n")
+        if not file_exists:f.write("functie,dimensiune,restarts,min,medie,max,std,timp_s\n")
+        f.write(f"{name},{n},{restarts},{min(scores):.5f},{mean:.5f},"f"{max(scores):.5f},{std:.5f},{duration:.2f}\n")
 
 if __name__ == "__main__":
     RUNS = 30
