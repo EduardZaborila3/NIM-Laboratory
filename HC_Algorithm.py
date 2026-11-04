@@ -19,7 +19,7 @@ def michalewicz(array):
     return -sum(math.sin(array[i]) * (math.sin((i + 1) * array[i] ** 2 / math.pi)) ** 20 for i in range(len(array)))
 
 
-#random starting point
+#random bits array
 def gen_bits_array(n):
     bits_array = [random.randint(0, 1) for _ in range(n)]
     return bits_array
@@ -64,13 +64,14 @@ FUNCTIONS = {
 def hill_climbing_binar(func, a, b, n, bits_number, start=None):
     bits_arr_len = n * bits_number
 
-    #start from a random point
+    #start from a random point week3 simple HC
     #or from a given point (GA -> best individ)
     if start is None:
         current_solution = gen_bits_array(bits_arr_len)
     else:
         current_solution = start.copy()
 
+    #transform bits into real numbers
     current_x = decode(current_solution, a, b, n, bits_number)
     current_score = func(current_x)
 
@@ -80,11 +81,16 @@ def hill_climbing_binar(func, a, b, n, bits_number, start=None):
         best_neighbour_score = float('inf')
 
         for i in range(bits_arr_len):
+            #from which variable is the bit
             var = i // bits_number
+            #where the variable block starts
             start_var = var * bits_number
 
+            #transform bit 0->1 and 1->0
             current_solution[i] = 1 - current_solution[i]
+            #decode only the affected variable
             new_value = decode_variable(current_solution[start_var:start_var + bits_number], a, b, bits_number)
+            #revert back
             current_solution[i] = 1 - current_solution[i]
 
             old_value = current_x[var]
@@ -102,18 +108,22 @@ def hill_climbing_binar(func, a, b, n, bits_number, start=None):
             current_solution[best_i] = 1 - current_solution[best_i]
             current_x[best_i // bits_number] = best_value
             current_score = best_neighbour_score
+
+        #if no neighbour is better -> local minimum
         else:
             break
 
     return current_solution, current_score
 
 
-#run HC many times from random points so it doesn't get stuck in local minimum
+#restart HC many times from random points so it doesn't get stuck in local minimum
 def hill_climbing_restarts(func, a, b, n, bits_number, restarts):
     best_solution = None
     best_score = float('inf')
     for _ in range(restarts):
+
         solution, score = hill_climbing_binar(func, a, b, n, bits_number)
+
         if score < best_score:
             best_solution = solution
             best_score = score
@@ -121,6 +131,7 @@ def hill_climbing_restarts(func, a, b, n, bits_number, restarts):
 
 def run_experiment(name, n, runs, restarts):
     func, a, b = FUNCTIONS[name]
+
     #5 decimals precision
     bits_number = calculate_bits_number(a, b, 5)
 

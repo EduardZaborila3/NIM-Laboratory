@@ -10,11 +10,20 @@ HC_Algorithm.USE_GRAY = True
 
 
 def init_population(pop_size, bits_arr_len):
-    return [gen_bits_array(bits_arr_len) for _ in range(pop_size)]
+    population = []
+    for _ in range(pop_size):
+        individual = gen_bits_array(bits_arr_len)
+        population.append(individual)
+    return population
 
 #for each individ func calculates the score ( result is a list with pop_size scores)
 def evaluate_population(population, func, a, b, n, bits_number):
-    return [func(decode(individual, a, b, n, bits_number)) for individual in population]
+    scores = []
+    for individual in population:
+        x = decode(individual, a, b, n, bits_number)
+        score = func(x)
+        scores.append(score)
+    return scores
 
 
 #chose 3 random individs and keep the one with the smallest score
@@ -78,7 +87,7 @@ def genetic_algorithm(func, a, b, n, bits_number,
 
         #every hc_every generations -> HC on the best individ
         if hc_every and (generation + 1) % hc_every == 0:
-            best = min(range(pop_size), key=lambda i: scores[i])
+            best = scores.index(min(scores))
             population[best], scores[best] = hill_climbing_binar(func, a, b, n, bits_number, start=population[best])
 
     #at the end: HC on the best individ
@@ -115,7 +124,7 @@ def run_experiment(name, n, runs, generations):
 if __name__ == "__main__":
     RUNS = 30
     GENERATIONS = 1000
-    DIMENSIONS = [2, 30]
+    DIMENSIONS = [2]
 
     FUNCTIONS_TO_RUN = ["rastrigin", "griewangk", "rosenbrock", "michalewicz"]
 
