@@ -41,7 +41,11 @@ def gray_to_binary(gray):
 def decode_variable(chunk, a, b, bits_number):
     if USE_GRAY:
         chunk = gray_to_binary(chunk)
-    integer = int("".join(map(str, chunk)), 2)
+
+    integer = 0
+    for bit in chunk:
+        integer = integer * 2 + bit
+
     return a + integer * (b - a) / (2 ** bits_number - 1)
 
 #split the bit array in n blocks (one block per variable) and decode each one
