@@ -1,0 +1,230 @@
+import math
+import random
+from math import prod
+import time
+import os
+
+# Definim o variabilă globală care va fi schimbată dinamic
+USE_GRAY = False
+
+
+def rastrigin(array):
+    return 10 * len(array) + sum(x ** 2 - 10 * math.cos(2 * math.pi * x) for x in array)
+
+
+def griewangk(array):
+    return sum(x ** 2 / 4000 for x in array) - prod(
+        math.cos(array[i] / math.sqrt(i + 1)) for i in range(len(array))) + 1
+
+
+def rosenbrock(array):
+    return sum(100 * (array[i + 1] - array[i] ** 2) ** 2 + (1 - array[i]) ** 2 for i in range(len(array) - 1))
+
+
+def michalewicz(array):
+    return -sum(math.sin(array[i]) * (math.sin((i + 1) * array[i] ** 2 / math.pi)) ** 20 for i in range(len(array)))
+
+
+# random bits array
+def gen_bits_array(n):
+    bits_array = [random.randint(0, 1) for _ in range(n)]
+    return bits_array
+
+
+# L bits -> 2^L different numbers
+def calculate_bits_number(a, b, precision):
+    return math.ceil(math.log2((b - a) * 10 ** precision))
+
+
+# b0=g0
+# bi = b(i-1) XOR gi
+def gray_to_binary(gray):
+    binary = [gray[0]]
+    for bit in gray[1:]:
+        binary.append(binary[-1] ^ bit)
+    return binary
+
+
+# transform bits block in integer and maps it to the interval
+def decode_variable(chunk, a, b, bits_number):
+    if USE_GRAY:
+        chunk = gray_to_binary(chunk)
+
+    integer = 0
+    for bit in chunk:
+        integer = integer * 2 + bit
+
+    return a + integer * (b - a) / (2 ** bits_number - 1)
+
+
+# split the bit array in n blocks (one block per variable) and decode each one
+def decode(bits_array, a, b, n, bits_number):
+    values = []
+    for i in range(n):
+        chunk = bits_array[i * bits_number:(i + 1) * bits_number]
+        values.append(decode_variable(chunk, a, b, bits_number))
+    return values
+
+
+FUNCTIONS = {
+    "rastrigin": (rastrigin, -5.12, 5.12),
+    "griewangk": (griewangk, -600, 600),
+    "rosenbrock": (rosenbrock, -2.048, 2.048),
+    "michalewicz": (michalewicz, 0, math.pi),
+}
+
+
+# neighbour = current solution with one bit flipped
+def hill_climbing_binar(func, a, b, n, bits_number, start=None):
+    bits_arr_len = n * bits_number
+
+    # start from a random point week3 simple HC
+    # or from a given point (GA -> best individ)
+    if start is None:
+        current_solution = gen_bits_array(bits_arr_len)
+    else:
+        current_solution = start.copy()
+
+    # transform bits into real numbers
+    current_x = decode(current_solution, a, b, n, bits_number)
+    current_score = func(current_x)
+
+    while True:
+        best_i = None
+        best_value = None
+        best_neighbour_score = float('inf')
+
+        for i in range(bits_arr_len):
+            # from which variable is the bit
+            var = i // bits_number
+            # where the variable block starts
+            start_var = var * bits_number
+
+            # transform bit 0->1 and 1->0
+            current_solution[i] = 1 - current_solution[i]
+
+            # decode only the affected variable
+            new_value = decode_variable(current_solution[start_var:start_var + bits_number], a, b, bits_number)
+            # revert back
+            current_solution[i] = 1 - current_solution[i]
+
+            old_value = current_x[var]
+            current_x[var] = new_value
+            neighbour_score = func(current_x)
+            current_x[var] = old_value
+
+            # save best neighbour
+            if neighbour_score < best_neighbour_score:
+                best_i = i
+                best_value = new_value
+                best_neighbour_score = neighbour_score
+
+        if best_neighbour_score < current_score:
+            current_solution[best_i] = 1 - current_solution[best_i]
+
+            current_x[best_i // bits_number] = best_value
+            current_score = best_neighbour_score
+
+        # if no neighbour is better -> local minimum
+        else:
+            break
+
+    return current_solution, current_score
+
+
+# restart HC many times from random points so it doesn't get stuck in local minimum
+def hill_climbing_restarts(func, a, b, n, bits_number, restarts):
+    best_solution = None
+    best_score = float('inf')
+
+    # Dacă restarts = 0, facem o singură rulare.
+    # Dacă restarts > 0, facem rulări multiple (restarts = număr de reluări suplimentare).
+    num_runs = max(1, restarts)
+
+    for _ in range(num_runs):
+        solution, score = hill_climbing_binar(func, a, b, n, bits_number)
+
+        if score < best_score:
+            best_solution = solution
+            best_score = score
+    return best_solution, best_score
+
+
+def run_experiment(name, n, runs, restarts):
+    func, a, b = FUNCTIONS[name]
+
+    # 5 decimals precision
+    bits_number = calculate_bits_number(a, b, 5)
+
+    scores = []
+    start = time.time()
+    for _ in range(runs):
+        _, score = hill_climbing_restarts(func, a, b, n, bits_number, restarts)
+        scores.append(score)
+    duration = (time.time() - start) / runs
+
+    mean = sum(scores) / runs
+    std = math.sqrt(sum((s - mean) ** 2 for s in scores) / runs)
+
+    print(
+        f"{name:12} n={n:3}  min={min(scores):.5f}  medie={mean:.5f}  "f"max={max(scores):.5f}  std={std:.5f}  timp/rulare={duration:.2f}s")
+
+    file_exists = os.path.exists("rezultate_hc.csv")
+    with open("rezultate_hc.csv", "a") as f:
+        if not file_exists:
+            f.write("functie,dimensiune,restarts,min,medie,max,std,timp_s\n")
+        f.write(f"{name},{n},{restarts},{min(scores):.5f},{mean:.5f},"f"{max(scores):.5f},{std:.5f},{duration:.2f}\n")
+
+
+def test_all_functions_encoding():
+    global USE_GRAY
+    print("\n--- TEST COMPLET: Binary vs Gray Encoding (30D, 10 rulari, 0 restarts) ---")
+
+    n = 30
+    runs = 10
+    restarts = 0
+
+    for name, (func, a, b) in FUNCTIONS.items():
+        bits_number = calculate_bits_number(a, b, 5)
+
+        # Test Standard Binary
+        USE_GRAY = False
+        start_t = time.time()
+        scores_binary = []
+        for _ in range(runs):
+            _, score = hill_climbing_restarts(func, a, b, n, bits_number, restarts)
+            scores_binary.append(score)
+        mean_binary = sum(scores_binary) / runs
+        time_binary = time.time() - start_t
+
+        USE_GRAY = True
+        start_t = time.time()
+        scores_gray = []
+        for _ in range(runs):
+            _, score = hill_climbing_restarts(func, a, b, n, bits_number, restarts)
+            scores_gray.append(score)
+        mean_gray = sum(scores_gray) / runs
+        time_gray = time.time() - start_t
+
+        ratio = time_gray / time_binary if time_binary > 0 else 1.0
+
+        print(
+            f"Funcția: {name:12} | Binary Mean: {mean_binary:12.5f} | Gray Mean: {mean_gray:12.5f} | Time Ratio: {ratio:.1f}x")
+
+    USE_GRAY = False
+
+
+if __name__ == "__main__":
+
+    test_all_functions_encoding()
+
+    print("\n--- Rulare Experimente Generale ---")
+    RUNS = 30
+    RESTARTS = {2: 50, 30: 10, 100: 1}
+    DIMENSIONS = [2, 30]
+
+    FUNCTIONS_TO_RUN = ["rastrigin", "griewangk", "rosenbrock", "michalewicz"]
+
+    for n in DIMENSIONS:
+        for name in FUNCTIONS_TO_RUN:
+            run_experiment(name, n, RUNS, RESTARTS[n])

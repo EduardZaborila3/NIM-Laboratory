@@ -26,6 +26,15 @@ def evaluate_population(population, func, a, b, n, bits_number):
     return scores
 
 
+def population_diversity(population, samples=30):
+    length = len(population[0])
+    total = 0
+    for _ in range(samples):
+        p, q = random.sample(population, 2)
+        total += sum(x != y for x, y in zip(p, q))
+    return total / (samples * length)
+
+
 #chose 3 random individs and keep the one with the smallest score
 #small k => weaker individs still have a chance
 def tournament_selection(population, scores, k=3):
@@ -59,13 +68,16 @@ def mutation(individual, mutation_prob):
 
 def genetic_algorithm(func, a, b, n, bits_number,
                       pop_size=100, generations=1000,
-                      crossover_prob=0.8, mutation_prob=None, elite_size=2, hc_every=200):
+                      crossover_prob=0.8, mutation_prob=None, elite_size=2, hc_every=200, log=False):
     bits_arr_len = n * bits_number
     if mutation_prob is None:
         mutation_prob = 5 / bits_arr_len      #5 bits per individ
 
     population = init_population(pop_size, bits_arr_len)
     scores = evaluate_population(population, func, a, b, n, bits_number)
+
+    history = []
+    diversity = []
 
     for generation in range(generations):
         #elitism: the best elite_size individs go to the next generation -> the best solution found is never lost
@@ -90,10 +102,16 @@ def genetic_algorithm(func, a, b, n, bits_number,
             best = scores.index(min(scores))
             population[best], scores[best] = hill_climbing_binar(func, a, b, n, bits_number, start=population[best])
 
+        if log:
+            history.append(min(scores))
+            diversity.append(population_diversity(population))
+
     #at the end: HC on the best individ
     best = min(range(pop_size), key=lambda i: scores[i])
     best_solution, best_score = hill_climbing_binar(func, a, b, n, bits_number, start=population[best])
 
+    if log:
+        return best_solution, best_score, history, diversity
     return best_solution, best_score
 
 
