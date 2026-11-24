@@ -6,11 +6,9 @@ import time
 
 import numpy as np
 
-from HC_Algorithm import FUNCTIONS  # (func, a, b) pentru fiecare functie de test
+from HC_Algorithm import FUNCTIONS
 
-# ----------------------------------------------------------------------
-# Fisiere de iesire
-# ----------------------------------------------------------------------
+
 OUT_DIR = "grafice_pso"
 MAIN_CSV = "rezultate_pso.csv"
 PARAM_CSV = "rezultate_pso_parametri.csv"
@@ -18,12 +16,12 @@ RUNS_CSV = "rezultate_pso_rulari.csv"
 TESTS_CSV = "rezultate_pso_teste.csv"
 CMP_CSV = "rezultate_comparatie.csv"
 
-# Rezultatele din H1 (pune numele corect al fisierului GA daca e altul).
-# Se asteapta coloanele: functie, dimensiune, medie
-HC_CSV = "rezultate_hc.csv"
-GA_CSV = "rezultate_ga.csv"
 
-# optimele cunoscute (Michalewicz 30/100: cele mai bune valori cunoscute, aproximative)
+_H1_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Hw1")
+HC_CSV = os.path.join(_H1_DIR, "rezultate_hc.csv")
+GA_CSV = os.path.join(_H1_DIR, "rezultate_ga.csv")
+
+
 KNOWN_OPT = {
     ("rastrigin", 2): 0.0, ("rastrigin", 30): 0.0, ("rastrigin", 100): 0.0,
     ("griewangk", 2): 0.0, ("griewangk", 30): 0.0, ("griewangk", 100): 0.0,
@@ -32,12 +30,7 @@ KNOWN_OPT = {
 }
 
 
-# ----------------------------------------------------------------------
-# Cautare locala (coordinate search) pentru hibridizare PSO + HC
-# ----------------------------------------------------------------------
 def local_search(func, x, a, b, step0, min_step=1e-7, max_evals=20000):
-    """Imbunatateste x modificand cate o coordonata cu +/- step.
-    Pasul se injumatateste cand nu mai exista imbunatatire."""
     x = np.array(x, dtype=float)
     fx = func(x.tolist())
     evals = 1
@@ -64,17 +57,20 @@ def local_search(func, x, a, b, step0, min_step=1e-7, max_evals=20000):
     return x, fx, evals
 
 
-# ----------------------------------------------------------------------
-# PSO (reprezentare reala, minimizare)
-# ----------------------------------------------------------------------
 def pso(func, a, b, n,
         swarm_size=50, iterations=1000,
-        w=0.7298, w_min=None,          # w_min != None -> inertie liniar descrescatoare w -> w_min
-        c1=1.49618, c2=1.49618,        # c1 = componenta cognitiva, c2 = componenta sociala
-        vmax_frac=0.2,                 # vmax = vmax_frac * (b - a)
-        topology="global",             # "global" (gbest) sau "ring" (lbest, 2 vecini)
-        polish=False,                  # True -> cautare locala pe gbest la final (hibrid)
-        polish_max_evals=20000):
+        w=0.7298, w_min=None,                                                                     
+        c1=1.49618, c2=1.49618,                                                            
+        vmax_frac=0.2,                                             
+        topology="global",                                                            
+        polish=False,                                                                     
+        polish_max_evals=20000,
+
+        restart_patience=0,                                                                           
+        restart_frac=0.2,                                                             
+        polish_every=0,                                                                        
+        polish_period_evals=2000,                                                       
+        crossover=0.0):                                                                                     
     """Returneaza (best_x, best_score, history, evaluari)."""
     vmax = vmax_frac * (b - a)
 
@@ -93,17 +89,18 @@ def pso(func, a, b, n,
     gbest_pos = pbest_pos[g].copy()
     gbest_score = pbest_score[g]
 
-    # vecinii pentru topologia ring: i-1, i, i+1
+
     idx = np.arange(swarm_size)
     ring_nb = np.stack([(idx - 1) % swarm_size, idx, (idx + 1) % swarm_size], axis=1)
 
     history = []
+    stagnation = 0                                                          
 
     for it in range(iterations):
-        # inertia (constanta sau liniar descrescatoare)
+
         w_now = w if w_min is None else w - (w - w_min) * it / max(1, iterations - 1)
 
-        # liderul fiecarei particule
+
         if topology == "global":
             leader = np.tile(gbest_pos, (swarm_size, 1))
         else:
@@ -118,7 +115,7 @@ def pso(func, a, b, n,
         vel = np.clip(vel, -vmax, vmax)
 
         pos = pos + vel
-        # in afara domeniului: tai la margine si opresc viteza pe acea dimensiune
+
         out = (pos < a) | (pos > b)
         pos = np.clip(pos, a, b)
         vel[out] = 0.0
@@ -131,9 +128,64 @@ def pso(func, a, b, n,
         pbest_score[improved] = scores[improved]
 
         g = int(np.argmin(pbest_score))
-        if pbest_score[g] < gbest_score:
+        if pbest_score[g] < gbest_score - 1e-12:
             gbest_score = pbest_score[g]
             gbest_pos = pbest_pos[g].copy()
+            stagnation = 0
+        else:
+            stagnation += 1
+
+
+                                                                              
+
+                                                                       
+        if restart_patience and stagnation >= restart_patience:
+            k = max(1, int(restart_frac * swarm_size))
+            worst = np.argsort(pbest_score)[-k:]
+            k_glob = k // 2
+            glob, loc = worst[:k_glob], worst[k_glob:]
+            pos[glob] = np.random.uniform(a, b, (len(glob), n))
+            span = 0.1 * (b - a)
+            pos[loc] = np.clip(gbest_pos + np.random.uniform(-span, span, (len(loc), n)), a, b)
+            vel[worst] = np.random.uniform(-vmax, vmax, (k, n))
+            s = evaluate(pos[worst])
+            evals += k
+            pbest_pos[worst] = pos[worst]
+            pbest_score[worst] = s
+            stagnation = 0
+
+
+        if polish_every and it and it % polish_every == 0:
+            x, f, e = local_search(func, gbest_pos, a, b, 0.1 * (b - a),
+                                   max_evals=polish_period_evals)
+            evals += e
+            if f < gbest_score:
+                gbest_pos, gbest_score = x, f
+                pbest_pos[0] = x
+                pbest_score[0] = f
+                pos[0] = x
+
+
+                                                                             
+
+                                                                      
+        if crossover and np.random.rand() < crossover:
+            order = np.argsort(pbest_score)
+            p1, p2 = order[0], order[np.random.randint(1, max(2, swarm_size // 2))]
+            alpha = np.random.rand(n)
+            child = alpha * pbest_pos[p1] + (1 - alpha) * pbest_pos[p2]
+            child = np.clip(child, a, b)
+            fc = func(child.tolist())
+            evals += 1
+            worst_i = int(np.argmax(pbest_score))
+            if fc < pbest_score[worst_i]:
+                pos[worst_i] = child
+                pbest_pos[worst_i] = child
+                pbest_score[worst_i] = fc
+                if fc < gbest_score:
+                    gbest_score = fc
+                    gbest_pos = child.copy()
+                    stagnation = 0
 
         history.append(float(gbest_score))
 
@@ -143,20 +195,19 @@ def pso(func, a, b, n,
         evals += e
         if f < gbest_score:
             gbest_pos, gbest_score = x, f
-        history.append(float(gbest_score))  # ultimul punct = dupa cautarea locala
+        history.append(float(gbest_score))                                        
 
     return gbest_pos, float(gbest_score), history, evals
 
 
-# ----------------------------------------------------------------------
-# Rulare multipla + statistici
-# ----------------------------------------------------------------------
+                              
+
 def run_many(name, n, runs, seed0=1000, **params):
     func, a, b = FUNCTIONS[name]
     scores, histories, evals_list = [], [], []
     start = time.time()
     for r in range(runs):
-        np.random.seed(seed0 + r)   # aceleasi seed-uri pentru toate variantele
+        np.random.seed(seed0 + r)                                              
         random.seed(seed0 + r)
         _, s, h, e = pso(func, a, b, n, **params)
         scores.append(s)
@@ -197,9 +248,8 @@ def run_experiment(name, n, runs, iterations, label="baseline", **params):
     return r
 
 
-# ----------------------------------------------------------------------
-# Studiul influentei parametrilor (variem UN parametru, restul = baseline)
-# ----------------------------------------------------------------------
+                                                                          
+
 BASE = dict(swarm_size=50, w=0.7298, w_min=None, c1=1.49618, c2=1.49618,
             vmax_frac=0.2, topology="global")
 
@@ -216,7 +266,7 @@ STUDY = {
 
 def parameter_study(n=30, runs=10, iterations=500, functions=None, plot=True):
     functions = functions or list(FUNCTIONS)
-    curves = {}  # (functie, grup) -> {eticheta: history}
+    curves = {}                                          
 
     for fname in functions:
         for group, values in STUDY.items():
@@ -247,9 +297,8 @@ def parameter_study(n=30, runs=10, iterations=500, functions=None, plot=True):
         plot_param_curves(curves, n)
 
 
-# ----------------------------------------------------------------------
-# Teste statistice intre variante
-# ----------------------------------------------------------------------
+                                 
+
 def statistical_tests(results, variants, functions, dims):
     try:
         from scipy.stats import mannwhitneyu
@@ -274,9 +323,8 @@ def statistical_tests(results, variants, functions, dims):
                 print(f"Mann-Whitney {name:12} n={n:3} {ref} vs {v:12}: p={p:.4g}")
 
 
-# ----------------------------------------------------------------------
-# Grafice
-# ----------------------------------------------------------------------
+         
+
 def _plt():
     import matplotlib
     matplotlib.use("Agg")
@@ -291,7 +339,7 @@ def plot_param_curves(curves, n):
         plt.figure(figsize=(7, 4.5))
         for label, hist in d.items():
             plt.plot(hist, label=label)
-        plt.yscale("symlog", linthresh=1e-3)  # symlog: Michalewicz are valori negative
+        plt.yscale("symlog", linthresh=1e-3)                                           
         plt.xlabel("iteration")
         plt.ylabel("best fitness (mean over runs)")
         plt.title(f"{fname.capitalize()}, n={n}: effect of {group}")
@@ -375,9 +423,8 @@ def plot_error_vs_dimension(results, variants, functions, dims):
     plt.close(fig)
 
 
-# ----------------------------------------------------------------------
-# Comparatie cu H1 (HC si GA)
-# ----------------------------------------------------------------------
+                             
+
 def read_reference(path):
     """Citeste media pe (functie, dimensiune). Daca sunt mai multe randuri, ultimul castiga."""
     if not os.path.exists(path):
@@ -436,28 +483,33 @@ def compare_with_h1(results, variants, functions, dims):
         plt.close(fig)
 
 
-# ----------------------------------------------------------------------
 if __name__ == "__main__":
-    RUN_MAIN = True       # experimentul principal (toate variantele)
-    RUN_STUDY = True      # studiul influentei parametrilor
+    RUN_MAIN = True                                                  
+    RUN_STUDY = True                                       
 
     RUNS = 30
     DIMENSIONS = [2, 30, 100]
-    ITERATIONS = {2: 1000, 30: 3000, 100: 6000}   # buget care creste cu dimensiunea
+    ITERATIONS = {2: 1000, 30: 3000, 100: 6000}                                     
     FUNCTIONS_TO_RUN = ["rastrigin", "griewangk", "rosenbrock", "michalewicz"]
 
-    TUNED = dict(vmax_frac=0.05, c1=2.0, c2=1.0)   # ales pe baza studiului de parametri
+    TUNED = dict(vmax_frac=0.05, c1=2.0, c2=1.0)                                        
+
+    TUNED2 = dict(vmax_frac=0.1, c1=2.0, c2=1.0,
+                  restart_patience=80, restart_frac=0.2,
+                  polish_every=500, polish_period_evals=2000,
+                  crossover=0.3, polish=True)
     VARIANTS = {
         "baseline":     dict(BASE),
         "tuned":        dict(BASE, **TUNED),
         "tuned_hybrid": dict(BASE, **TUNED, polish=True),
+        "tuned_hybrid2": dict(BASE, **TUNED2),
     }
 
     PARAM_N = 30
     PARAM_RUNS = 10
     PARAM_ITERATIONS = 500
 
-    # sterg rezultatele vechi ca sa nu se dubleze randurile
+
     for path in (MAIN_CSV, PARAM_CSV, RUNS_CSV, TESTS_CSV, CMP_CSV):
         if os.path.exists(path):
             os.remove(path)
