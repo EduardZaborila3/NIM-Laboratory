@@ -3,8 +3,6 @@
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
 \usepackage{pgfplots}
 \usepgfplotslibrary{groupplots}
 \pgfplotsset{compat=1.17}
@@ -103,8 +101,10 @@ definitions~\cite{geatbx,jamil2013}.
 highly multimodal, with a regular grid of local minima spaced about one
 unit apart:
 \begin{equation}
-f_1(\mathbf{x}) = 10n + \sum_{i=1}^{n}\left[x_i^2 - 10\cos(2\pi x_i)\right],
-\quad x_i\in[-5.12,5.12].
+\begin{split}
+f_1(\mathbf{x}) = 10n + \sum_{i=1}^{n}\Big[&x_i^2 - 10\cos(2\pi x_i)\Big],\\
+&x_i\in[-5.12,5.12].
+\end{split}
 \end{equation}
 
 \textbf{Griewangk}~\cite{griewank1981} has many local minima whose number
@@ -119,8 +119,10 @@ f_2(\mathbf{x}) = \sum_{i=1}^{n}\frac{x_i^2}{4000}
 \textbf{Rosenbrock}~\cite{rosenbrock1960} is non-separable, with a narrow
 curved valley that is easy to find and hard to follow:
 \begin{equation}
-f_3(\mathbf{x}) = \sum_{i=1}^{n-1}\left[100(x_{i+1}-x_i^2)^2+(1-x_i)^2\right],
-\quad x_i\in[-2.048,2.048].
+\begin{split}
+f_3(\mathbf{x}) = \sum_{i=1}^{n-1}\Big[&100(x_{i+1}-x_i^2)^2+(1-x_i)^2\Big],\\
+&x_i\in[-2.048,2.048].
+\end{split}
 \end{equation}
 
 \textbf{Michalewicz}~\cite{michalewicz1996} ($m=10$) is separable, but has
@@ -200,14 +202,13 @@ variants were defined:
 \item \textbf{tuned}: baseline with $\alpha=0.05$, $c_1=2.0$, $c_2=1.0$.
 Since $c_1+c_2=3<3.35$, it remains stable.
 \item \textbf{tuned\_hybrid}: the tuned PSO followed by a coordinate-wise
-local search applied to the final global best
-(Algorithm~\ref{alg:ls}). This search is the real-valued counterpart of
-the HC used in the GA+HC hybrid of H1. It belongs to the family of
-coordinate-wise direct search methods~\cite{hooke1961}, and its
-combination with PSO follows the usual global/local scheme of hybrid
-metaheuristics~\cite{talbi2002}. It uses an initial step of $0.01(b-a)$
-that is halved when no coordinate move improves, down to $10^{-7}$, with a
-cap of 20\,000 evaluations.
+local search applied to the final global best. This search works the same
+way as the HC used in the GA+HC hybrid of H1, but on real numbers instead
+of bits. It belongs to the family of coordinate-wise direct search
+methods~\cite{hooke1961}, and combining it with PSO follows the usual idea
+of mixing a global search with a local one~\cite{talbi2002}. It uses an
+initial step of $0.01(b-a)$ that is halved when no coordinate move
+improves, down to $10^{-7}$, with a cap of 20\,000 evaluations.
 \item \textbf{tuned\_hybrid2} (enhanced hybrid): the tuned PSO augmented
 with three cooperating mechanisms, plus the same final local search. (i)
 A \emph{stagnation restart}: when the global best does not improve for 80
@@ -224,38 +225,6 @@ iterations ($v_{\max}$ also raised to $0.1(b-a)$ to compensate for the
 larger domains). This variant mirrors the LS and crossover hybrids used in
 more advanced PSO studies.
 \end{itemize}
-
-\begin{algorithm}[t]
-\caption{PSO with optional local search}\label{alg:pso}
-\begin{algorithmic}[1]
-\State $\mathbf{x}_i\sim U(a,b)^n$, $\mathbf{v}_i\sim U(-v_{\max},v_{\max})^n$,
-$\mathbf{p}_i\gets\mathbf{x}_i$, $\mathbf{g}\gets\arg\min f(\mathbf{p}_i)$
-\For{$t=0$ \textbf{to} $T-1$}
-  \State compute $w(t)$; determine $\mathbf{l}_i$ (global or ring)
-  \State update $\mathbf{v}_i$ by (\ref{eq:v}), clamp; update $\mathbf{x}_i$
-         by (\ref{eq:x}), clip
-  \State update $\mathbf{p}_i$ and $\mathbf{g}$ where improved
-\EndFor
-\If{hybrid} $\mathbf{g}\gets\textsc{LocalSearch}(\mathbf{g})$ \EndIf
-\State \Return $\mathbf{g}$, $f(\mathbf{g})$
-\end{algorithmic}
-\end{algorithm}
-
-\begin{algorithm}[t]
-\caption{\textsc{LocalSearch} (coordinate search)}\label{alg:ls}
-\begin{algorithmic}[1]
-\State $h\gets0.01(b-a)$
-\While{$h>10^{-7}$ \textbf{and} budget not exhausted}
-  \State improved $\gets$ false
-  \For{$i=1$ \textbf{to} $n$, $d\in\{+h,-h\}$}
-    \State $\mathbf{x}'\gets\mathbf{x}$, $x'_i\gets\mathrm{clip}(x_i+d)$
-    \If{$f(\mathbf{x}')<f(\mathbf{x})$} $\mathbf{x}\gets\mathbf{x}'$,
-        improved $\gets$ true; next $i$ \EndIf
-  \EndFor
-  \If{not improved} $h\gets h/2$ \EndIf
-\EndWhile
-\end{algorithmic}
-\end{algorithm}
 
 The implementation is written in Python with NumPy~\cite{harris2020}, and
 all figures were produced with Matplotlib~\cite{hunter2007}; swarm
@@ -772,6 +741,7 @@ decode every candidate and evaluate $n\cdot L$ bit-flip neighbors at each
 HC step.
 
 %=====================================================================
+\FloatBarrier
 \section{Discussion}\label{sec:discussion}
 %=====================================================================
 \textbf{Exploration versus exploitation.} Each parameter studied acts on
@@ -816,6 +786,7 @@ not measured. The enhanced hybrid also uses slightly more evaluations than
 the other variants.
 
 %=====================================================================
+\FloatBarrier
 \section{Conclusion}\label{sec:conclusion}
 %=====================================================================
 A real-valued PSO with velocity clamping, configurable inertia and global

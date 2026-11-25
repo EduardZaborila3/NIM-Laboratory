@@ -371,10 +371,14 @@ def plot_dimension_convergence(results, label, functions, dims):
 
 def plot_variants_convergence(results, variants, functions, n):
     plt = _plt()
+    styles = ["-", "--", ":", "-."]
+    widths = [1.4, 1.8, 2.2, 1.6]
     fig, axes = plt.subplots(1, len(functions), figsize=(4 * len(functions), 3.6))
     for ax, name in zip(np.atleast_1d(axes), functions):
-        for v in variants:
-            ax.plot(results[(v, name, n)]["history"], label=v)
+        for i, v in enumerate(variants):
+            ax.plot(results[(v, name, n)]["history"], label=v,
+                    linestyle=styles[i % len(styles)],
+                    linewidth=widths[i % len(widths)])
         ax.set_yscale("symlog", linthresh=1e-3)
         ax.set_title(f"{name.capitalize()}, n={n}")
         ax.set_xlabel("iteration")
@@ -495,8 +499,9 @@ if __name__ == "__main__":
     TUNED = dict(vmax_frac=0.05, c1=2.0, c2=1.0)                                        
 
     TUNED2 = dict(vmax_frac=0.1, c1=2.0, c2=1.0,
-                  restart_patience=80, restart_frac=0.2,
-                  polish_every=500, polish_period_evals=2000,
+                  restart_patience=120, restart_frac=0.2,
+                  polish_every=500, polish_period_evals=4000,
+                  polish_max_evals=60000,
                   crossover=0.3, polish=True)
     VARIANTS = {
         "baseline":     dict(BASE),
