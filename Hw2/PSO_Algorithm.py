@@ -70,7 +70,8 @@ def pso(func, a, b, n,
         restart_frac=0.2,                                                             
         polish_every=0,                                                                        
         polish_period_evals=2000,                                                       
-        crossover=0.0):                                                                                     
+        crossover=0.0,
+        polish_restarts=0):                                                                                     
     """Returneaza (best_x, best_score, history, evaluari)."""
     vmax = vmax_frac * (b - a)
 
@@ -190,11 +191,17 @@ def pso(func, a, b, n,
         history.append(float(gbest_score))
 
     if polish:
-        x, f, e = local_search(func, gbest_pos, a, b, 0.01 * (b - a),
-                               max_evals=polish_max_evals)
-        evals += e
-        if f < gbest_score:
-            gbest_pos, gbest_score = x, f
+        order = np.argsort(pbest_score)
+        starts = [gbest_pos]
+        for i in order[:polish_restarts]:
+            starts.append(pbest_pos[i])
+        budget = max(1, polish_max_evals // len(starts))
+        for start in starts:
+            x, f, e = local_search(func, start, a, b, 0.01 * (b - a),
+                                   max_evals=budget)
+            evals += e
+            if f < gbest_score:
+                gbest_pos, gbest_score = x, f
         history.append(float(gbest_score))                                        
 
     return gbest_pos, float(gbest_score), history, evals
@@ -498,11 +505,11 @@ if __name__ == "__main__":
 
     TUNED = dict(vmax_frac=0.05, c1=2.0, c2=1.0)                                        
 
-    TUNED2 = dict(vmax_frac=0.1, c1=2.0, c2=1.0,
+    TUNED2 = dict(swarm_size=80, vmax_frac=0.07, c1=2.0, c2=1.0,
                   restart_patience=120, restart_frac=0.2,
                   polish_every=500, polish_period_evals=4000,
-                  polish_max_evals=60000,
-                  crossover=0.3, polish=True)
+                  polish_max_evals=100000,
+                  crossover=0.3, polish=True, polish_restarts=4)
     VARIANTS = {
         "baseline":     dict(BASE),
         "tuned":        dict(BASE, **TUNED),
