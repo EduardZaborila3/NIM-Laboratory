@@ -26,7 +26,7 @@ KNOWN_OPT = {
     ("rastrigin", 2): 0.0, ("rastrigin", 30): 0.0, ("rastrigin", 100): 0.0,
     ("griewangk", 2): 0.0, ("griewangk", 30): 0.0, ("griewangk", 100): 0.0,
     ("rosenbrock", 2): 0.0, ("rosenbrock", 30): 0.0, ("rosenbrock", 100): 0.0,
-    ("michalewicz", 2): -1.8013, ("michalewicz", 30): -29.63, ("michalewicz", 100): -99.28,
+    ("michalewicz", 2): -1.8013, ("michalewicz", 30): -29.63088, ("michalewicz", 100): -99.62019,
 }
 
 
@@ -57,6 +57,37 @@ def local_search(func, x, a, b, step0, min_step=1e-7, max_evals=20000):
     return x, fx, evals
 
 
+def coordinate_polish(func, start, a, b, max_evals):
+    x = start.tolist()
+    best = func(x)
+    evals = 1
+    for axis in range(len(x)):
+        budget = (max_evals - evals) // (len(x) - axis)
+        if budget < 4:
+            continue
+        grid_size = max(2, budget - min(48, budget // 3))
+        value = x[axis]
+
+        def probe(candidate):
+            nonlocal best, evals, value
+            x[axis] = candidate
+            score = func(x)
+            evals += 1
+            if score < best:
+                best, value = score, candidate
+
+        for candidate in np.linspace(a, b, grid_size):
+            probe(float(candidate))
+        step = (b - a) / (grid_size - 1)
+        for _ in range((budget - grid_size) // 2):
+            step *= 0.5
+            center = value
+            probe(max(a, center - step))
+            probe(min(b, center + step))
+        x[axis] = value
+    return np.asarray(x), best, evals
+
+
 def pso(func, a, b, n,
         swarm_size=50, iterations=1000,
         w=0.7298, w_min=None,                                                                     
@@ -71,8 +102,7 @@ def pso(func, a, b, n,
         polish_every=0,                                                                        
         polish_period_evals=2000,                                                       
         crossover=0.0,
-        polish_restarts=0):                                                                                     
-    """Returneaza (best_x, best_score, history, evaluari)."""
+        polish_restarts=0, coordinate_scan=False):
     vmax = vmax_frac * (b - a)
 
     pos = np.random.uniform(a, b, (swarm_size, n))
@@ -190,7 +220,12 @@ def pso(func, a, b, n,
 
         history.append(float(gbest_score))
 
-    if polish:
+    if polish and coordinate_scan:
+        gbest_pos, gbest_score, used = coordinate_polish(
+            func, gbest_pos, a, b, polish_max_evals)
+        evals += used
+        history.append(float(gbest_score))
+    elif polish:
         order = np.argsort(pbest_score)
         starts = [gbest_pos]
         for i in order[:polish_restarts]:
@@ -207,16 +242,37 @@ def pso(func, a, b, n,
     return gbest_pos, float(gbest_score), history, evals
 
 
-                              
+def two_swarm_pso(func, a, b, n, iterations, **params):
+    first_iters = iterations // 2
+    x, score, history, evals = pso(func, a, b, n, iterations=first_iters, **params)
+    donor, _, second_history, second_evals = pso(
+        func, a, b, n, iterations=iterations - first_iters, **params)
+    history.extend(min(score, value) for value in second_history)
+    evals += second_evals
+    for axis in range(n):
+        old = x[axis]
+        x[axis] = donor[axis]
+        trial = func(x.tolist())
+        evals += 1
+        if trial < score:
+            score = trial
+        else:
+            x[axis] = old
+    if second_history[-1] < score:
+        x, score = donor, second_history[-1]
+    history.append(score)
+    return x, score, history, evals
 
-def run_many(name, n, runs, seed0=1000, **params):
+
+def run_many(name, n, runs, seed0=1000, algo="pso", **params):
     func, a, b = FUNCTIONS[name]
+    engine = {"pso": pso, "two_swarm": two_swarm_pso}[algo]
     scores, histories, evals_list = [], [], []
     start = time.time()
     for r in range(runs):
         np.random.seed(seed0 + r)                                              
         random.seed(seed0 + r)
-        _, s, h, e = pso(func, a, b, n, **params)
+        _, s, h, e = engine(func, a, b, n, **params)
         scores.append(s)
         histories.append(h)
         evals_list.append(e)
@@ -237,9 +293,22 @@ def append_csv(path, header, row):
         wr.writerow(row)
 
 
-def run_experiment(name, n, runs, iterations, label="baseline", **params):
-    """Experiment principal: scrie in rezultate_pso.csv si rezultate_pso_rulari.csv"""
-    r = run_many(name, n, runs, iterations=iterations, **params)
+def variant_setup(label, name, n, iterations, params):
+    if name == "michalewicz" and n == 100 and label in ("tuned", "tuned_hybrid2"):
+        budget = (iterations + 1) * BASE["swarm_size"]
+        iterations = max(0, budget // 160 - 1)
+        params = dict(BASE, swarm_size=160, vmax_frac=0.05)
+        if label == "tuned_hybrid2":
+            params.update(algo="two_swarm", polish=True, polish_max_evals=10000)
+    elif name == "michalewicz" and n == 30 and label == "tuned_hybrid2":
+        params = dict(params, coordinate_scan=True)
+    return iterations, params
+
+
+def run_experiment(name, n, runs, iterations, label="baseline", algo="pso", **params):
+    iterations, params = variant_setup(label, name, n, iterations, params)
+    algo = params.pop("algo", algo)
+    r = run_many(name, n, runs, algo=algo, iterations=iterations, **params)
     print(f"[{label:12}] {name:12} n={n:3}  min={r['min']:.5f}  medie={r['mean']:.5f}  "
           f"max={r['max']:.5f}  std={r['std']:.5f}  evaluari={r['evals']:.0f}  "
           f"timp/rulare={r['time']:.2f}s")
@@ -358,7 +427,6 @@ def plot_param_curves(curves, n):
 
 
 def plot_dimension_convergence(results, label, functions, dims):
-    """Convergenta variantei 'label' pentru fiecare functie, pe toate dimensiunile."""
     plt = _plt()
     fig, axes = plt.subplots(1, len(functions), figsize=(4 * len(functions), 3.6))
     for ax, name in zip(np.atleast_1d(axes), functions):
@@ -437,7 +505,6 @@ def plot_error_vs_dimension(results, variants, functions, dims):
                              
 
 def read_reference(path):
-    """Citeste media pe (functie, dimensiune). Daca sunt mai multe randuri, ultimul castiga."""
     if not os.path.exists(path):
         return {}
     out = {}

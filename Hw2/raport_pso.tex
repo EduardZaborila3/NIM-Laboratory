@@ -37,9 +37,9 @@ restarts, an arithmetic crossover between personal bests and a periodic
 local search were designed. With 30 independent runs per instance and a
 budget that grows with dimension, the enhanced hybrid solves Rastrigin
 exactly in 30 and 100 dimensions (mean $0.0$), lowers the 30-dimensional
-Rosenbrock error from 15.6 to 0.53, the 100-dimensional Rosenbrock error
-from 95.5 to 58.9, the 100-dimensional Griewangk error from 0.366 to
-0.0028, and reaches 93\% of the best-known optimum on 100-dimensional
+Rosenbrock error from 15.6 to 0.76, the 100-dimensional Rosenbrock error
+from 95.5 to 67.5, the 100-dimensional Griewangk error from 0.366 to
+0.0028, and reaches a mean of $-96.84668$ on 100-dimensional
 Michalewicz. Almost all improvements are statistically significant
 (Mann--Whitney U test, $p<0.05$; $p<10^{-5}$ in most cases). Compared with
 the Hill Climbing and hybrid GA of a previous study, the enhanced hybrid
@@ -145,7 +145,7 @@ The global minima are listed in Table~\ref{tab:optima}; for Michalewicz in
 Function & $n=2$ & $n=30$ & $n=100$\\
 \midrule
 Rastrigin, Griewangk, Rosenbrock & 0 & 0 & 0\\
-Michalewicz & $-1.8013$ & $\approx-29.63$ & $\approx-99.28$\\
+Michalewicz & $-1.8013$ & $\approx-29.63088$ & $\approx-99.62019$\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -227,11 +227,31 @@ but also more expensive (see the cost discussion in
 Section~\ref{sec:main}).
 \end{itemize}
 
+On the original Michalewicz function the following settings apply. At
+$n=30$, tuned\_hybrid2 keeps its swarm, restarts, crossover and periodic
+local search. In the final stage it varies one coordinate at a time on a
+uniform grid over $[0,\pi]$, retains the best value including the incumbent,
+and refines it with successively halved steps. The coordinates share a
+100,000-evaluation allowance. This produced a mean of $-29.63069$.
+
+At $n=100$, tuned PSO uses a global-best swarm of 160 particles,
+$w=0.7298$, $c_1=c_2=1.49618$ and $v_{\max}=0.05(b-a)$.
+The enhanced hybrid uses two independently initialized swarms with these
+same parameters. Each swarm refines its own best vector by coordinate
+hill climbing with an initial step of $0.01\pi$. Starting from the first
+refined vector, the algorithm tries each coordinate of the second in turn,
+evaluates the full objective, and accepts a substitution only if it improves
+the score. It also compares the completed vector with the second swarm's
+solution. Since the original objective is a sum of independent coordinate
+terms, each accepted gain is preserved when later coordinates are changed.
+The simple tuned\_hybrid retains its original 50-particle configuration.
+
+
 %=====================================================================
 \section{Experimental Setup}\label{sec:setup}
 %=====================================================================
 \textbf{Main experiment.} Every function was run in $n\in\{2,30,100\}$
-with 30 independent runs per instance and $S=50$ (baseline, tuned and
+with 30 independent runs per instance and, apart from the Michalewicz exceptions above, $S=50$ (baseline, tuned and
 tuned\_hybrid). The number of iterations grows with dimension,
 $T\in\{1000,3000,6000\}$, giving $50\,050$, $150\,050$ and $300\,050$
 evaluations per run for those variants; the local search of tuned\_hybrid
@@ -239,6 +259,13 @@ adds at most 20\,000 evaluations. The enhanced hybrid (tuned\_hybrid2) uses
 $S=80$ and stronger local search, so it uses more evaluations (see
 Section~\ref{sec:main}). Run $r$ of every variant uses the same random seed
 ($1000+r$), so all variants are compared on common random numbers.
+
+For 100-dimensional Michalewicz, tuned PSO uses 1,874 iterations
+and 300,000 swarm evaluations including initialization. The two-swarm
+hybrid divides the same 1,874 iterations equally (937 per swarm),
+giving 300,160 swarm evaluations, a local-search allowance of 10,000
+evaluations per swarm, and 100 final coordinate trials. The reported
+two-swarm statistics use all 30 seeds ($1000$ through $1029$).
 
 \textbf{Parameter study.} On all four functions with $n=30$, one parameter
 was varied at a time while the others kept their baseline values
@@ -490,29 +517,27 @@ errors grow, and the running time increases to about 4\,s per run.
 \toprule
 Function & $n$ & Min & Mean & Max & Std & Evaluations & Time/run (s)\\
 \midrule
-Rastrigin   & 2   & 0.00000 & 0.00000 & 0.00000 & 0.00000 & 50\,050 & 0.03\\
-Griewangk   & 2   & 0.00000 & 0.00125 & 0.00740 & 0.00275 & 50\,050 & 0.04\\
+Rastrigin   & 2   & 0.00000 & 0.00000 & 0.00000 & 0.00000 & 50\,050 & 0.04\\
+Griewangk   & 2   & 0.00000 & 0.00125 & 0.00740 & 0.00275 & 50\,050 & 0.07\\
 Rosenbrock  & 2   & 0.00000 & 0.00000 & 0.00000 & 0.00000 & 50\,050 & 0.03\\
-Michalewicz & 2   & $-1.80130$ & $-1.80130$ & $-1.80130$ & 0.00000 & 50\,050 & 0.03\\
+Michalewicz & 2   & $-1.80130$ & $-1.80130$ & $-1.80130$ & 0.00000 & 50\,050 & 0.04\\
 \midrule
-Rastrigin   & 30  & 28.85380 & 59.10041 & 87.55603 & 13.39213 & 150\,050 & 0.43\\
+Rastrigin   & 30  & 28.85380 & 59.10041 & 87.55603 & 13.39213 & 150\,050 & 0.47\\
 Griewangk   & 30  & 0.00000 & 0.02040 & 0.07635 & 0.02142 & 150\,050 & 0.56\\
 Rosenbrock  & 30  & 12.54489 & 15.61683 & 20.52056 & 2.04120 & 150\,050 & 0.62\\
-Michalewicz & 30  & $-27.80665$ & $-25.21621$ & $-21.89808$ & 1.60151 & 150\,050 & 0.64\\
+Michalewicz & 30  & $-27.80665$ & $-25.21621$ & $-21.89808$ & 1.60151 & 150\,050 & 0.66\\
 \midrule
 Rastrigin   & 100 & 197.00151 & 281.64353 & 376.09287 & 42.76870 & 300\,050 & 2.43\\
-Griewangk   & 100 & 0.00000 & 0.36574 & 1.94079 & 0.46674 & 300\,050 & 3.31\\
+Griewangk   & 100 & 0.00000 & 0.36574 & 1.94079 & 0.46674 & 300\,050 & 3.36\\
 Rosenbrock  & 100 & 77.71005 & 95.47126 & 193.61131 & 24.43257 & 300\,050 & 3.87\\
-Michalewicz & 100 & $-87.22997$ & $-83.80107$ & $-77.86669$ & 2.11889 & 300\,050 & 3.97\\
+Michalewicz & 100 & $-87.22997$ & $-83.79608$ & $-77.86668$ & 2.17643 & 300\,050 & 3.97\\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 \subsection{Tuned and hybrid variants}
 Table~\ref{tab:var} and Fig.~\ref{fig:var} compare the four variants. In
-2 dimensions all variants are exact; on Griewangk, the tuned variants
-remove the few failed baseline runs (mean 0.00000 versus 0.00125,
-$p=0.011$).
+2 dimensions the four variants reach the reference values to five decimals on three functions. On Griewangk the baseline mean is 0.00125, the tuned and simple hybrid means are 0.00000, and the enhanced hybrid mean is 0.00049.
 
 \begin{table*}[t]
 \centering
@@ -526,13 +551,13 @@ Function & $n$ & baseline & tuned & tuned\_hybrid & tuned\_hybrid2\\
 \midrule
 Rastrigin   & 30  & $59.100\pm13.392$ & $30.877\pm7.562^{+}$ & $30.877\pm7.562^{+}$ & $\mathbf{0.000}\pm0.000^{+}$\\
 Griewangk   & 30  & $0.0204\pm0.0214$ & $0.0155\pm0.0196$ & $0.0155\pm0.0196$ & $\mathbf{0.0091}\pm0.0113^{+}$\\
-Rosenbrock  & 30  & $15.617\pm2.041$ & $20.548\pm1.548^{-}$ & $12.910\pm1.534^{+}$ & $\mathbf{0.535}\pm1.355^{+}$\\
-Michalewicz & 30  & $-25.216\pm1.602$ & $-26.895\pm1.029^{+}$ & $-27.311\pm0.764^{+}$ & $\mathbf{-27.774}\pm0.597^{+}$\\
+Rosenbrock  & 30  & $15.617\pm2.041$ & $20.548\pm1.548^{-}$ & $12.910\pm1.534^{+}$ & $\mathbf{0.762}\pm1.453^{+}$\\
+Michalewicz & 30  & $-25.216\pm1.602$ & $-26.895\pm1.029^{+}$ & $-27.311\pm0.764^{+}$ & $\mathbf{-29.63069}\pm0.00006^{+}$\\
 \midrule
 Rastrigin   & 100 & $281.644\pm42.769$ & $106.767\pm22.229^{+}$ & $93.924\pm21.534^{+}$ & $\mathbf{0.000}\pm0.000^{+}$\\
 Griewangk   & 100 & $0.3657\pm0.4667$ & $3.0028\pm1.2094^{-}$ & $0.0038\pm0.0052^{+}$ & $\mathbf{0.0028}\pm0.0055^{+}$\\
-Rosenbrock  & 100 & $95.471\pm24.433$ & $119.388\pm20.010^{-}$ & $96.373\pm9.214^{-}$ & $\mathbf{58.880}\pm5.133^{+}$\\
-Michalewicz & 100 & $-83.796\pm2.176$ & $-79.516\pm2.926^{-}$ & $\mathbf{-92.708}\pm1.792^{+}$ & $-91.941\pm1.989^{+}$\\
+Rosenbrock  & 100 & $95.471\pm24.433$ & $119.388\pm20.010^{-}$ & $96.373\pm9.214^{-}$ & $\mathbf{67.543}\pm5.129^{+}$\\
+Michalewicz & 100 & $-83.796\pm2.176$ & $-91.583\pm2.276^{+}$ & $-92.708\pm1.792^{+}$ & $\mathbf{-96.84668}\pm0.84561^{+}$\\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -551,22 +576,22 @@ Michalewicz & 100 & $-83.796\pm2.176$ & $-79.516\pm2.926^{-}$ & $\mathbf{-92.708
   title style={font=\footnotesize, yshift=2pt},
   legend style={font=\scriptsize, at={(1.15,1.38)}, anchor=south, legend columns=4}]
 \nextgroupplot[title={$n=30$}, ylabel={Mean error $\bar f-f^*$}]
-\addplot coordinates {(Rastrigin,59.100) (Griewangk,0.0204) (Rosenbrock,15.617) (Michalewicz,4.414)};
-\addplot coordinates {(Rastrigin,30.877) (Griewangk,0.0155) (Rosenbrock,20.548) (Michalewicz,2.735)};
-\addplot coordinates {(Rastrigin,30.877) (Griewangk,0.0155) (Rosenbrock,12.910) (Michalewicz,2.319)};
-\addplot coordinates {(Rastrigin,0.001) (Griewangk,0.0091) (Rosenbrock,0.535) (Michalewicz,1.856)};
+\addplot coordinates {(Rastrigin,59.100) (Griewangk,0.0204) (Rosenbrock,15.617) (Michalewicz,4.41467)};
+\addplot coordinates {(Rastrigin,30.877) (Griewangk,0.0155) (Rosenbrock,20.548) (Michalewicz,2.73578)};
+\addplot coordinates {(Rastrigin,30.877) (Griewangk,0.0155) (Rosenbrock,12.910) (Michalewicz,2.31995)};
+\addplot coordinates {(Rastrigin,0.001) (Griewangk,0.0091) (Rosenbrock,0.762) (Michalewicz,0.00019)};
 \legend{baseline, tuned, tuned\_hybrid, tuned\_hybrid2}
 \nextgroupplot[title={$n=100$}]
-\addplot coordinates {(Rastrigin,281.644) (Griewangk,0.3657) (Rosenbrock,95.471) (Michalewicz,15.484)};
-\addplot coordinates {(Rastrigin,106.767) (Griewangk,3.0028) (Rosenbrock,119.388) (Michalewicz,19.764)};
-\addplot coordinates {(Rastrigin,93.924) (Griewangk,0.0038) (Rosenbrock,96.373) (Michalewicz,6.572)};
-\addplot coordinates {(Rastrigin,0.001) (Griewangk,0.0028) (Rosenbrock,58.880) (Michalewicz,7.339)};
+\addplot coordinates {(Rastrigin,281.644) (Griewangk,0.3657) (Rosenbrock,95.471) (Michalewicz,15.82411)};
+\addplot coordinates {(Rastrigin,106.767) (Griewangk,3.0028) (Rosenbrock,119.388) (Michalewicz,8.03676)};
+\addplot coordinates {(Rastrigin,93.924) (Griewangk,0.0038) (Rosenbrock,96.373) (Michalewicz,6.91205)};
+\addplot coordinates {(Rastrigin,0.001) (Griewangk,0.0028) (Rosenbrock,67.543) (Michalewicz,2.77351)};
 \end{groupplot}
 \end{tikzpicture}
 \caption{Mean error of the four variants on each function (log scale;
 lower is better), for $n=30$ and $n=100$. The error is the mean result
-minus the optimum. For Michalewicz the optimum is $\approx-29.63$ ($n=30$)
-and $\approx-99.28$ ($n=100$). The tuned\_hybrid2 bar for Rastrigin is
+minus the optimum. For Michalewicz the optimum is $\approx-29.63088$ ($n=30$)
+and $\approx-99.62019$ ($n=100$). The tuned\_hybrid2 bar for Rastrigin is
 drawn at $10^{-3}$ because its error is exactly 0, which a log axis cannot
 show.}
 \label{fig:var}
@@ -579,13 +604,13 @@ small steps and particles that rely more on their own best than on the
 group performed best in the parameter study. On Rosenbrock the tuned
 variant is worse, which agrees with the study, where $(2.5,0.5)$ performed
 poorly on that function. In 100 dimensions, tuning hurts Griewangk
-($0.366\to3.00$) and Michalewicz. With $v_{\max}=0.05(b-a)$ the swarm moves
+($0.366\to3.00$). On Michalewicz, the 160-particle tuned swarm improves the mean from $-83.79608$ to $-91.58343$. With $v_{\max}=0.05(b-a)$ the swarm moves
 too slowly in 100 dimensions, particularly on the wide Griewangk domain,
 and does not finish converging within the budget.
 
 \textbf{Effect of hybridization.} The local search fixes exactly this
 problem. In 100 dimensions it improves every one of the 30 runs on
-Rastrigin, Griewangk and Michalewicz. It brings the Griewangk error down
+Rastrigin and Griewangk. It brings the Griewangk error down
 from about 3 to 0.0038 and raises Michalewicz to $-92.71$, 93\% of the
 best-known optimum, with a best run of $-95.44$. Coordinate search is
 especially effective here because Michalewicz and Rastrigin are separable
@@ -599,7 +624,7 @@ three variants (12.91). In 100 dimensions it brings the tuned variant back
 to the baseline level (96.37), with a much smaller spread (std 9.21 versus
 24.43). Fig.~\ref{fig:box} and Fig.~\ref{fig:conv_var} show the run
 distributions and the convergence curves; the final jump in the hybrid
-curves corresponds to the local search.
+curves corresponds to final refinement, including recombination for the two-swarm hybrid.
 
 \textbf{Effect of the enhanced hybrid (tuned\_hybrid2).} Adding a larger
 swarm, stagnation restarts, crossover and a stronger local search changes
@@ -608,28 +633,27 @@ the picture. Rastrigin is now solved exactly in both 30 and 100 dimensions
 and the coordinate search pushes each variable to the nearest whole number,
 which is exactly where Rastrigin's lowest points are. On Rosenbrock the
 crossover recombines good coordinates and follows the valley far better:
-the mean drops from 15.62 to 0.53 in 30 dimensions and from 95.47 to 58.88
-in 100 dimensions. Michalewicz improves to $-27.77$ in 30 dimensions and
-reaches 93\% of the best-known value in 100 dimensions ($-91.94$, best run
-$-95.35$). Griewangk also improves ($0.0091$ in 30 dimensions, $0.0028$ in
-100). Every difference with respect to the baseline is reliable
-($p<10^{-5}$ in most cases, $p<0.05$ everywhere). The one trade-off is in
-100-dimensional Michalewicz, where the mean is slightly behind
-tuned\_hybrid ($-91.94$ versus $-92.71$): there the restart occasionally
-discards good plateaus before the swarm can exploit them.
+the mean drops from 15.62 to 0.76 in 30 dimensions and from 95.47 to 67.54
+in 100 dimensions. Michalewicz improves to $-29.63$ in 30 dimensions and
+reaches a mean of $-96.84668$ in 100 dimensions (best $-98.03893$, worst $-94.58149$). At 30 dimensions the best run reached $-29.63088$. Griewangk also improves ($0.0091$ in 30 dimensions, $0.0028$ in
+100). For the enhanced hybrid at 30 and 100 dimensions, every difference with respect to the baseline is reliable
+($p<10^{-5}$ in most cases, $p<0.05$ everywhere). On 100-dimensional Michalewicz, 28 of 30 runs finished below $-95$.
+A single 160-particle swarm with final HC, tested on the same seeds, reached
+a mean of $-92.70747$ and a best of $-95.79033$. Splitting the swarm
+iterations between two starts and recombining the refined solutions
+improved the mean by 4.13921.
 
 \textbf{Cost.} The enhanced hybrid is markedly more expensive than the
 other variants, because of its larger swarm and its much longer local
 search. On 100-dimensional problems it uses roughly twice as many
 evaluations as the baseline (for example about $626\,000$ on Rosenbrock
-against $300\,050$), and its running time per run rises from a few seconds
-to several minutes on the hardest instances. The gain in accuracy therefore
+against $300\,050$), and its running time per run is about 7.9 seconds on 100-dimensional Rosenbrock. The gain in accuracy therefore
 comes at a clear cost in computation.
 
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{grafice_pso/boxplot_variants_n100.png}
-\caption{Distribution of final values over 30 runs for the four variants,
+\caption{Distribution of final values over 30 runs for the plotted variants,
 $n=100$.}
 \label{fig:box}
 \end{figure*}
@@ -637,25 +661,30 @@ $n=100$.}
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{grafice_pso/convergence_variants_n100.png}
-\caption{Mean convergence of the four variants, $n=100$. The last point of
-the hybrid curves is the result after local search.}
+\caption{Mean convergence of the plotted variants, $n=100$. The last point of
+the hybrid curves includes the final refinement step. For the two-swarm Michalewicz hybrid, it includes recombination.}
 \label{fig:conv_var}
 \end{figure*}
 
-\subsection{Comparison with HC and GA (H1)}
-Table~\ref{tab:cmp} compares the mean results of PSO with those of the
-binary Hill Climbing (HC) and of the binary GA hybridized with HC from H1.
-Fig.~\ref{fig:cmp30} and Fig.~\ref{fig:cmp100} show the same data
-graphically. HC was not run in 100 dimensions in H1 because of its cost.
+\subsection{Comparison across H1, H2 and H2$'$}
+Table~\ref{tab:cmp} compares the three assignments on the same benchmarks:
+H1, the binary Hill Climbing (HC) and the binary GA hybridized with HC; H2,
+the baseline PSO of this report; and H2$'$, the enhanced hybrid PSO
+(tuned\_hybrid2). Fig.~\ref{fig:cmp30} and Fig.~\ref{fig:cmp100} show the
+same data graphically. HC was not run in 100 dimensions in H1 because of its
+cost.
 
 \begin{table}[t]
 \centering
-\caption{Mean best value (30 runs): HC and GA+HC (H1) versus baseline PSO
-and the enhanced hybrid PSO (tuned\_hybrid2). Best per row in bold.}
+\caption{Mean best value (30 runs) across the three assignments: H1 (HC and
+GA+HC), H2 (baseline PSO) and H2$'$ (enhanced hybrid PSO, tuned\_hybrid2).
+Best per row in bold.}
 \label{tab:cmp}
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{llrrrr}
 \toprule
+& & \multicolumn{2}{c}{H1} & H2 & H2$'$\\
+\cmidrule(lr){3-4}\cmidrule(lr){5-5}\cmidrule(lr){6-6}
 Function & $n$ & HC & GA+HC & PSO & PSO hybrid2\\
 \midrule
 Rastrigin   & 2   & \textbf{0.000} & \textbf{0.000} & \textbf{0.000} & \textbf{0.000}\\
@@ -665,13 +694,13 @@ Michalewicz & 2   & $\mathbf{-1.801}$ & $\mathbf{-1.801}$ & $\mathbf{-1.801}$ & 
 \midrule
 Rastrigin   & 30  & 44.366 & 19.899 & 59.100 & \textbf{0.000}\\
 Griewangk   & 30  & \textbf{0.000} & \textbf{0.000} & 0.020 & 0.009\\
-Rosenbrock  & 30  & 35.477 & \textbf{0.000} & 15.617 & 0.535\\
-Michalewicz & 30  & $-25.424$ & $-26.327$ & $-25.216$ & $\mathbf{-27.774}$\\
+Rosenbrock  & 30  & 35.477 & \textbf{0.000} & 15.617 & 0.762\\
+Michalewicz & 30  & $-25.424$ & $-26.327$ & $-25.216$ & $\mathbf{-29.631}$\\
 \midrule
 Rastrigin   & 100 & --    & 185.991 & 281.644 & \textbf{0.000}\\
 Griewangk   & 100 & --    & 0.072 & 0.366 & \textbf{0.003}\\
-Rosenbrock  & 100 & --    & \textbf{0.000} & 95.471 & 58.880\\
-Michalewicz & 100 & --    & $-84.971$ & $-83.796$ & $\mathbf{-91.941}$\\
+Rosenbrock  & 100 & --    & \textbf{0.000} & 95.471 & 67.543\\
+Michalewicz & 100 & --    & $-84.971$ & $-83.796$ & $\mathbf{-96.847}$\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -696,9 +725,9 @@ only method whose mean is 0.000; HC and GA+HC occasionally stop in a
 neighboring local minimum.
 
 \textbf{Thirty dimensions.} The enhanced hybrid PSO (tuned\_hybrid2) is now
-the strongest method on three of the four functions. It solves Rastrigin
-exactly (0.000 versus 19.90 for GA+HC), wins on Michalewicz ($-27.77$
-versus $-26.33$), and brings Rosenbrock down to 0.53, far below plain HC
+the strongest method in Table~\ref{tab:cmp} on two of the four functions. It solves Rastrigin
+exactly (0.000 versus 19.90 for GA+HC), wins on Michalewicz ($-29.63$
+versus $-26.33$), and brings Rosenbrock down to 0.76, far below plain HC
 (35.48) and baseline PSO (15.62), though GA+HC still reaches 0.000. On
 Griewangk all methods are essentially tied near zero. Plain HC is better
 than baseline PSO on Rastrigin (44.37 versus 59.10) because its restarts
@@ -707,8 +736,8 @@ sample many basins, but worse on Rosenbrock.
 \textbf{One hundred dimensions.} In 100 dimensions the enhanced hybrid PSO
 obtains the best mean on three of the four functions: Rastrigin (0.000
 versus 185.99 for GA+HC), Griewangk (0.003 versus 0.072) and Michalewicz
-($-91.94$ versus $-84.97$, 93\% versus 86\% of the best-known optimum). On
-Rosenbrock it reduces the baseline error from 95.47 to 58.88, but GA+HC
+($-96.84668$ versus $-84.97059$). On
+Rosenbrock it reduces the baseline error from 95.47 to 67.54, but GA+HC
 remains clearly superior there (0.000), thanks to its exhaustive bit-flip
 local search.
 
@@ -786,8 +815,7 @@ evaluations than the others.
 %=====================================================================
 A PSO that works directly on real numbers, with a limit on how fast
 particles can move, adjustable inertia and a global or ring topology was
-built and tested on four functions in 2, 30 and 100 dimensions. PSO solves
-every 2D case exactly. The parameter study shows that the inertia weight and
+built and tested on four functions in 2, 30 and 100 dimensions. Baseline PSO reaches the reference values to five decimals on three of the four 2D cases. The parameter study shows that the inertia weight and
 the balance between the two coefficients matter most, and their effect
 matches the known stability condition. Dropping the social term is the
 worst choice, a small step size is the single most useful change on the
@@ -796,8 +824,8 @@ the function. Using these findings, we built a tuned PSO, a hybrid PSO with
 a local search at the end, and an enhanced hybrid that also adds a larger
 swarm, restarts, crossover and a stronger local search. The enhanced hybrid
 reaches the optimum of Rastrigin in 30 and 100 dimensions, cuts the
-30-dimensional Rosenbrock error from 15.6 to 0.53 and the 100-dimensional
-one from 95.5 to 58.9, and gets to 93\% of the best-known value on
+30-dimensional Rosenbrock error from 15.6 to 0.76 and the 100-dimensional
+one from 95.5 to 67.5, and reaches a mean of $-96.84668$ on
 100-dimensional Michalewicz. It improves the baseline clearly on every
 function, at the price of more evaluations.
 

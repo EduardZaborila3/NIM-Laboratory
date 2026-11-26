@@ -1,6 +1,6 @@
 """Regenereaza DOAR convergence_variants_n100.png cu stiluri de linie distincte.
 Ruleaza 10 rulari per varianta (graficul e media; forma e identica cu 30).
-Salveaza istoricele in _hist_n100.npz, deci a doua oara desenezi instant.
+Salveaza istoricele in _hist_n100_mich_v4.npz, deci a doua oara desenezi instant.
 
 Rulare:  python regen_convergenta.py
 """
@@ -10,10 +10,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from PSO_Algorithm import run_many, BASE
+from PSO_Algorithm import run_many, BASE, variant_setup
 
 OUT = "grafice_pso"
-CACHE = "_hist_n100.npz"
+CACHE = "_hist_n100_mich_v4.npz"
 FUNCS = ["rastrigin", "griewangk", "rosenbrock", "michalewicz"]
 VARIANTS = ["baseline", "tuned", "tuned_hybrid", "tuned_hybrid2"]
 
@@ -40,7 +40,9 @@ else:
     hist = {}
     for lbl in VARIANTS:
         for f in FUNCS:
-            r = run_many(f, 100, RUNS, iterations=ITER, **PARAMS[lbl])
+            params = PARAMS[lbl]
+            iterations, params = variant_setup(lbl, f, 100, ITER, params)
+            r = run_many(f, 100, RUNS, iterations=iterations, **params)
             hist[f"{lbl}|{f}"] = np.asarray(r["history"])
             print(f"  {lbl:14} {f:12} gata", flush=True)
     np.savez(CACHE, **hist)

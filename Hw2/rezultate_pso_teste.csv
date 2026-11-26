@@ -32,6 +32,6 @@ michalewicz,2,baseline,tuned_hybrid2,1.000000,nu
 michalewicz,30,baseline,tuned,0.000060,da
 michalewicz,30,baseline,tuned_hybrid,0.000000,da
 michalewicz,30,baseline,tuned_hybrid2,0.000000,da
-michalewicz,100,baseline,tuned,0.000001,da
+michalewicz,100,baseline,tuned,0.000000,da
 michalewicz,100,baseline,tuned_hybrid,0.000000,da
 michalewicz,100,baseline,tuned_hybrid2,0.000000,da
